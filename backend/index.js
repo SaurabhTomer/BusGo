@@ -1,12 +1,18 @@
 import express from 'express'
+import authRouter from './routes/auth.routes.js';
 
-const app = express();;
+const app = express();
+
+const port = process.env.PORT || 5000 ;
 
 
-app.use('/health' , (req , res) => {
-    res.send({message : "hello"})
-})
+app.use(express.json());
 
-app.listen(3000 , () => {
-    console.log("running server ")
+
+// ------Routes---------
+app.use("/api/auth" , authRouter);
+
+
+app.listen(port , () => {
+    console.log(`server running at port ${port}`)
 })
