@@ -40,21 +40,27 @@ const otp = z
   
 // ----------  schemas  ----------
 
-const sendOtpSchema = z.object({
-  phone, // phone check
+export const sendOtpSchema = z.object({
+  phone, 
 });
 
-const verifyOtpSchema = z.object({
-  phone, // kis phone ka OTP hai
-  otp, // user ne jo OTP daala
+export const verifyOtpSchema = z.object({
+  phone,
+  otp,
 });
 
 
-const signupSchema = z.object({
-  name, // name check
-  email, // email check
-  phone, // phone check
-  password, // password check
+export const signupSchema = z.object({
+  name, 
+  email, 
+  phone, 
+  password, 
 });
 
-export { sendOtpSchema, verifyOtpSchema, signupSchema };
+
+
+export const loginSchema = z.object({
+  email, 
+  password: z.string({ error: "Password is required" }).min(1, "Password is required"), 
+});
+

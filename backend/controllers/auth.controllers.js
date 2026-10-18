@@ -6,6 +6,7 @@ import {
     sendOtpSchema,
     verifyOtpSchema,
     signupSchema,
+    loginSchema,
 } from "../validations/auth.validations.js";
 import {
     OTP_EXPIRY,
@@ -16,7 +17,39 @@ import {
     cooldownKey,
     attemptsKey,
     verifiedKey,
+    loginAttemptsKey,
+    LOGIN_MAX_ATTEMPTS,
+    refreshKey,
+    REFRESH_EXPIRY,
 } from "../constants/auth.constants.js";
+import { signToken } from "../config/jwt.js";
+
+
+
+const cookieOptions = {
+  httpOnly: true, // JavaScript se cookie padhi nahi ja sakti (XSS se bachav)
+  secure: process.env.NODE_ENV === "production", // production me sirf https pe
+  sameSite: "strict", // dusri site se cookie nahi jaayegi (CSRF se bachav)
+  maxAge: REFRESH_EXPIRY * 1000, // cookie 7 din rahegi in ms
+};
+
+// access + refresh token banata hai, refresh ko cookie me set karta hai
+const issueTokens = async (user, res) => {
+ 
+  const accessToken = signToken({ id: user.id, role: user.role });
+
+  // refresh token: random lamba string (JWT nahi, simple aur revoke karna easy)
+  const refreshToken = crypto.randomBytes(40).toString("hex");
+
+  // redis me save karo: key = token, value = userId, 7 din baad apne aap delete
+  await redis.set(refreshKey(refreshToken), user.id, "EX", REFRESH_EXPIRY);
+
+  // refresh token cookie me bhejo
+  res.cookie("refreshToken", refreshToken, cookieOptions);
+
+  return accessToken; 
+};
+
 
 
 
@@ -153,7 +186,10 @@ export const signup = async (req, res) => {
 
         await redis.del(verifiedKey(phone));        // dlt verified flag 
 
-        return res.status(201).json({ message: "Signup successful", user });
+        
+         const token = await issueTokens(user, res); // access token milega, refresh cookie me chala gaya
+
+        return res.status(201).json({ message: "Signup successful", token ,  user });
     } catch (error) {
         // P2002 = unique constraint fail (do log ek saath signup kare to yaha aayega)
         if (error.code === "P2002") {
@@ -162,4 +198,131 @@ export const signup = async (req, res) => {
         console.error("signup error:", error);
         return res.status(500).json({ message: "Something went wrong" });
     }
+};
+
+// ----------  LOGIN: POST /auth/login ----------
+export const login = async (req, res) => {
+  try {
+    
+    const result = loginSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.issues[0].message });
+    }
+    const { email, password } = result.data; 
+
+    
+    const attempts = await redis.get(loginAttemptsKey(email));
+    if (attempts && Number(attempts) >= LOGIN_MAX_ATTEMPTS) {
+      return res
+        .status(429)
+        .json({ message: "Too many failed attempts. Try again after 15 minutes" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+
+   
+    const isMatch = user ? await bcrypt.compare(password, user.password) : false;
+
+    if (!isMatch) {
+      const count = await redis.incr(loginAttemptsKey(email));
+      if (count === 1) {
+        await redis.expire(loginAttemptsKey(email), LOGIN_LOCK_TIME);
+      }
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+
+    await redis.del(loginAttemptsKey(email));
+
+
+    const token = await issueTokens(user, res); // access token milega, refresh cookie me chala gaya
+
+
+    return res.status(200).json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("login error:", error);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+
+// ---------- REFRESH: POST /auth/refresh ----------
+export const refresh = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) {
+      return res.status(401).json({ message: "Refresh token missing" });
+    }
+
+    // redis se userId nikalo AUR  delete karo (ek token sirf ek baar use hoga)
+    const userId = await redis.getdel(refreshKey(refreshToken));
+    if (!userId) {
+      res.clearCookie("refreshToken");
+      return res.status(401).json({ message: "Invalid or expired refresh token" });
+    }
+
+    // user abhi bhi DB me hai ya nahi
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      res.clearCookie("refreshToken");
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    // naya access token + naya refresh token (rotation)
+    const token = await issueTokens(user, res);
+
+    return res.status(200).json({ message: "Token refreshed", token });
+  } catch (error) {
+    console.error("refresh error:", error);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+// ---------- LOGOUT: POST /auth/logout ----------
+export const logout = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+
+    // redis se refresh token delete, ab ye kabhi kaam nahi karega
+    if (refreshToken) {
+      await redis.del(refreshKey(refreshToken));
+    }
+
+    // browser se cookie bhi hata do
+    res.clearCookie("refreshToken");
+
+    return res.status(200).json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.error("logout error:", error);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+
+// ---------- ME: GET /auth/me ----------
+export const getMe = async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true }, 
+    });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({ user });
+  } catch (error) {
+    console.error("getMe error:", error);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
 };

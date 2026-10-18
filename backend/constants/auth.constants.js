@@ -11,3 +11,11 @@ export const otpKey = (phone) => `otp:${phone}`;               //OTP store
 export const cooldownKey = (phone) => `otp-cooldown:${phone}`; // To stop resend OTP
 export const attemptsKey = (phone) => `otp-attempts:${phone}`; // Count attempt that are done to enter OTP
 export const verifiedKey = (phone) => `phone-verified:${phone}`; // check Phone Verified or not
+
+
+export const LOGIN_MAX_ATTEMPTS = 5; // galat password max 5 baar
+export const LOGIN_LOCK_TIME = 900; // uske baad 15 minute ruko (seconds me)
+export const loginAttemptsKey = (email) => `login-attempts:${email}`; // galat login ginne ke liye
+
+export const REFRESH_EXPIRY = 7 * 24 * 60 * 60; // refresh token 7 din (seconds me)
+export const refreshKey = (token) => `refresh:${token}`; // redis me refresh token ki key
