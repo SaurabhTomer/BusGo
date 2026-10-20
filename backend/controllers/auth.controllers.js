@@ -22,33 +22,8 @@ import {
     refreshKey,
     REFRESH_EXPIRY,
 } from "../constants/auth.constants.js";
-import { signToken } from "../config/jwt.js";
+import { issueTokens } from "../utils/issueTokens.js";
 
-
-
-const cookieOptions = {
-  httpOnly: true, // JavaScript se cookie padhi nahi ja sakti (XSS se bachav)
-  secure: process.env.NODE_ENV === "production", // production me sirf https pe
-  sameSite: "strict", // dusri site se cookie nahi jaayegi (CSRF se bachav)
-  maxAge: REFRESH_EXPIRY * 1000, // cookie 7 din rahegi in ms
-};
-
-// access + refresh token banata hai, refresh ko cookie me set karta hai
-const issueTokens = async (user, res) => {
- 
-  const accessToken = signToken({ id: user.id, role: user.role });
-
-  // refresh token: random lamba string (JWT nahi, simple aur revoke karna easy)
-  const refreshToken = crypto.randomBytes(40).toString("hex");
-
-  // redis me save karo: key = token, value = userId, 7 din baad apne aap delete
-  await redis.set(refreshKey(refreshToken), user.id, "EX", REFRESH_EXPIRY);
-
-  // refresh token cookie me bhejo
-  res.cookie("refreshToken", refreshToken, cookieOptions);
-
-  return accessToken; 
-};
 
 
 

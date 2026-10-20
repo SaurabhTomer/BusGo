@@ -15,6 +15,26 @@ enum Role {
 }
 
 
+enum BusType {
+  SEATER
+  SLEEPER
+}
+
+
+enum TripStatus {
+  SCHEDULED
+  CANCELLED
+  COMPLETED
+}
+
+enum OperatorStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+
 model User {
   id           String    @id @default(uuid())
   name         String
@@ -22,5 +42,85 @@ model User {
   phone        String     @unique
   password     String
   role         Role      @default(USER)
+  operator   Operator?
   createdAt    DateTime  @default(now())
+}
+
+
+
+model Bus {
+  id          String   @id @default(uuid())
+  name        String                      
+  busNumber   String   @unique            
+  type        BusType  @default(SEATER)
+  totalSeats  Int                         
+  isActive    Boolean  @default(true)      
+  createdAt   DateTime @default(now())
+
+  operatorId  String
+  operator    Operator @relation(fields: [operatorId], references: [id])
+
+  seats       Seat[]
+  trips       Trip[]
+}
+
+model Operator {
+  id               String          @id @default(uuid())
+  userId           String          @unique          
+  agencyName       String
+  gstNo            String          @unique
+  contactPhone     String
+  address          String
+  status           OperatorStatus  @default(PENDING)
+  rejectionReason  String?                          
+  commissionPct    Int             @default(10)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  user             User            @relation(fields: [userId], references: [id])
+  buses            Bus[]
+  routes           Route[]
+}
+
+model Seat {
+  id          String  @id @default(uuid())
+  busId       String
+  seatNumber  String                       
+  row         Int                         
+  col         Int
+
+  bus         Bus     @relation(fields: [busId], references: [id], onDelete: Cascade) // bus delete hui to seats bhi
+
+  @@unique([busId, seatNumber])            // ek bus me ek seat number do baar nahi
+}
+
+model Route {
+  id           String  @id @default(uuid())
+  source       String                     
+  destination  String                     
+  distanceKm   Int?                        
+
+  trips        Trip[]
+
+  operatorId  String
+  operator    Operator @relation(fields: [operatorId], references: [id])
+  @@unique([operatorId, source, destination])  
+
+  @@unique([source, destination])          // wahi route dobara nahi
+}
+
+model Trip {
+  id             String      @id @default(uuid())
+  busId          String
+  routeId        String
+  departureTime  DateTime
+  arrivalTime    DateTime
+  price          Int                       // per seat, rupees me (Razorpay ke liye paise = price * 100)
+  status         TripStatus  @default(SCHEDULED)
+  createdAt      DateTime    @default(now())
+
+  bus            Bus         @relation(fields: [busId], references: [id])
+  route          Route       @relation(fields: [routeId], references: [id])
+
+  @@index([routeId, departureTime])        // search (route + date) fast karne ke liye
 }
