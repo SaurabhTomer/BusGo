@@ -3,6 +3,7 @@ import authRouter from './routes/auth.routes.js';
 import cookieParser from 'cookie-parser';
 import busRouter from './routes/bus.routes.js';
 import operatorRouter from './routes/operator.routes.js';
+import adminRouter from './routes/admin.routes.js';
 
 const app = express();
 
@@ -17,7 +18,7 @@ app.use(cookieParser())
 app.use("/api/auth" , authRouter);
 app.use("/api/buses", busRouter);
 app.use("/api/operators", operatorRouter);
-
+app.use("/api/admin", adminRouter);
 
 app.listen(port , () => {
     console.log(`server running at port ${port}`)
