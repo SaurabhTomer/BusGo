@@ -12,3 +12,10 @@ export const searchTripsSchema = z
     path: ["to"],
   });
 
+  // /search/trips/:id/seats
+export const tripIdParamSchema = z.object({
+  id: z.uuid("Invalid trip id"), 
+});
+
+
+
