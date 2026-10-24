@@ -10,11 +10,15 @@ import TripRouter from './routes/trip.routes.js';
 import searchRouter from './routes/search.routes.js';
 import bookingRouter from './routes/booking.routes.js';
 import { startExpiryJob } from './jobs/expireBookings.js';
+import { razorpayWebhook } from './controllers/payment.controllers.js';
+import paymentRouter from './routes/payment.routes.js';
 
 const app = express();
 
 const port = process.env.PORT || 5000 ;
 
+
+ app.post("/api/payments/webhook", express.raw({ type: "application/json" }), razorpayWebhook);
 
 app.use(express.json());
 app.use(cookieParser())
@@ -30,6 +34,7 @@ app.use("/api/routes", routeRouter);
 app.use("/api/trips", TripRouter);
 app.use("/api/search", searchRouter);
 app.use("/api/bookings", bookingRouter);
+app.use("/api/payments", paymentRouter);
 
 
 
