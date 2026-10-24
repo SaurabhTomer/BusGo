@@ -38,6 +38,7 @@ model User {
   password  String
   role      Role      @default(USER)
   operator  Operator?
+  bookings  Booking[]
   createdAt DateTime  @default(now())
 }
 
@@ -82,7 +83,8 @@ model Seat {
   row        Int
   col        Int
 
-  bus Bus @relation(fields: [busId], references: [id], onDelete: Cascade) // bus delete hui to seats bhi
+  bus          Bus           @relation(fields: [busId], references: [id], onDelete: Cascade) // bus delete hui to seats bhi
+  bookingSeats BookingSeat[]
 
   @@unique([busId, seatNumber]) // ek bus me ek seat number do baar nahi
 }
@@ -104,10 +106,10 @@ model Route {
 
 model City {
   id        String   @id @default(uuid())
-  name      String // display ke liye: "Lucknow"
+  name      String //  "Lucknow"
   slug      String   @unique // "lucknow" (Lucknow/lucknow dono duplicate na ban paayein)
-  state     String? // optional: "Uttar Pradesh"
-  isActive  Boolean  @default(true) // remove = band karna (delete nahi)
+  state     String? // Uttar Pradesh"
+  isActive  Boolean  @default(true) // remove = band karna 
   createdAt DateTime @default(now())
 
   routesFrom Route[] @relation("RouteSource")
@@ -120,12 +122,96 @@ model Trip {
   routeId       String
   departureTime DateTime
   arrivalTime   DateTime
-  price         Int // per seat, rupees me (Razorpay ke liye paise = price * 100)
+  price         Int // per seat, rupees me (Razorpay ko bhejte waqt * 100 karenge)
   status        TripStatus @default(SCHEDULED)
   createdAt     DateTime   @default(now())
 
-  bus   Bus   @relation(fields: [busId], references: [id])
-  route Route @relation(fields: [routeId], references: [id])
+  bus          Bus           @relation(fields: [busId], references: [id])
+  route        Route         @relation(fields: [routeId], references: [id])
+  bookings     Booking[]
+  bookingSeats BookingSeat[]
 
   @@index([routeId, departureTime]) // search (route + date) fast karne ke liye
+}
+
+enum BookingStatus {
+  PENDING // seat lock hui, payment baaki
+  CONFIRMED // payment ho gaya
+  CANCELLED // user ne cancel kiya
+  EXPIRED // 5 min me payment nahi hua
+}
+
+enum PaymentStatus {
+  CREATED // Razorpay order bana
+  PAID // paisa aa gaya
+  FAILED // fail hua
+  REFUNDED // wapas kar diya
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model Booking {
+  id               String        @id @default(uuid())
+  userId           String
+  tripId           String
+  status           BookingStatus @default(PENDING)
+  totalAmount      Int // rupees: trip.price * seats
+  commissionPct    Int? // payment confirm hone pe bharega
+  commissionAmount Int? // rupees: hamari commission
+  operatorAmount   Int? // rupees: operator ko milne wala
+  expiresAt        DateTime // PENDING booking kab tak valid (abhi + 5 min)
+  cancelledAt      DateTime?
+  createdAt        DateTime      @default(now())
+
+  user     User          @relation(fields: [userId], references: [id])
+  trip     Trip          @relation(fields: [tripId], references: [id])
+  seats    BookingSeat[]
+  payments Payment[]
+
+  @@index([userId])
+  @@index([status, expiresAt]) // expiry cron ke liye
+}
+
+model BookingSeat {
+  id        String @id @default(uuid())
+  bookingId String
+  tripId    String
+  seatId    String
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  trip    Trip    @relation(fields: [tripId], references: [id])
+  seat    Seat    @relation(fields: [seatId], references: [id])
+
+  @@unique([tripId, seatId]) // ek trip me ek seat do baar book nahi ho sakti
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  bookingId         String
+  razorpayOrderId   String        @unique
+  razorpayPaymentId String?       @unique
+  idempotencyKey    String        @unique // ek hi request do baar order na bana de
+  amount            Int // rupees
+  status            PaymentStatus @default(CREATED)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  booking Booking  @relation(fields: [bookingId], references: [id])
+  refunds Refund[]
+}
+
+model Refund {
+  id               String       @id @default(uuid())
+  paymentId        String
+  amount           Int // rupees
+  razorpayRefundId String?      @unique
+  status           RefundStatus @default(PENDING)
+  reason           String?
+  createdAt        DateTime     @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id])
 }
