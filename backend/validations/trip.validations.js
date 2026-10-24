@@ -1,6 +1,10 @@
 import { z } from "zod"; 
 const busId = z.uuid({ error: "Select a valid bus" }); 
-const routeId = z.uuid({ error: "Select a valid route" }); 
+const routeId = z.uuid({ error: "Select a valid route" });
+
+const sourceCityId = z.uuid({ error: "Valid source city is required" });
+const destinationCityId = z.uuid({ error: "Valid destination city is required" });
+
 
 // time ISO format me, timezone ke saath: "2026-11-05T21:00:00+05:30"
 // string ko Date me badal dete hain 

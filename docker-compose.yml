@@ -1,0 +1,13 @@
+services:
+  redis:
+    image: redis:7-alpine         # hredis image
+    container_name: busgo-redis   # container ka naam
+    ports:
+      - "6379:6379"               # host port  :  container port 
+    volumes:
+      - redis-data:/data          # data save rahega, container restart pe OTP/locks na udein
+    command: ["redis-server", "--appendonly", "yes"] # data disk pe bhi likhta rahe
+    restart: unless-stopped        # laptop restart ke baad apne aap chalu ho jaye
+
+volumes:
+  redis-data:                       # redis ka data yaha store hoga
