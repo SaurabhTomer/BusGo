@@ -8,6 +8,8 @@ import router from './routes/city.routes.js';
 import routeRouter from './routes/route.routes.js';
 import TripRouter from './routes/trip.routes.js';
 import searchRouter from './routes/search.routes.js';
+import bookingRouter from './routes/booking.routes.js';
+import { startExpiryJob } from './jobs/expireBookings.js';
 
 const app = express();
 
@@ -27,7 +29,11 @@ app.use("/api/cities", router);
 app.use("/api/routes", routeRouter);
 app.use("/api/trips", TripRouter);
 app.use("/api/search", searchRouter);
+app.use("/api/bookings", bookingRouter);
+
+
 
 app.listen(port , () => {
     console.log(`server running at port ${port}`)
+    startExpiryJob();
 })

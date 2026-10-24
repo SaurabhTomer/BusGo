@@ -1,4 +1,4 @@
-import prisma from "../config/prismaClient.js"; 
+import {prisma} from "../config/prismaClient.js"; 
 import { searchTripsSchema , tripIdParamSchema } from "../validations/search.validations.js"; 
 
 // ---------- SEARCH TRIPS: GET /search/trips?from=..&to=..&date=.. (public) ----------
@@ -62,71 +62,53 @@ export const searchTrips = async (req, res) => {
 };
 
 // ---------- TRIP SEATS: GET /search/trips/:id/seats (public) ----------
+// ---------- GET /api/search/trips/:id/seats ----------
 export const getTripSeats = async (req, res) => {
   try {
-    const params = tripIdParamSchema.safeParse(req.params);
-    if (!params.success) {
-      return res.status(400).json({ message: params.error.issues[0].message });
+    const result = tripIdParamSchema.safeParse(req.params);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error.issues[0].message });
     }
+    const tripId = result.data.id;
 
-    // trip dhundo (wahi shartein jo search me thi, taaki chhupi hui trip ke seat map na dikhe)
-    const trip = await prisma.trip.findFirst({
-      where: {
-        id: params.data.id,
-        status: "SCHEDULED", 
-        departureTime: { gt: new Date() }, 
-        bus: { isActive: true }, 
-        route: { operator: { status: "APPROVED" } }, 
-      },
-      select: {
-        id: true,
-        departureTime: true,
-        arrivalTime: true,
-        price: true,
-        bus: { select: { id: true, name: true, type: true } },
-        route: {
-          select: {
-            sourceCity: { select: { name: true } },
-            destinationCity: { select: { name: true } },
-          },
-        },
-      },
+    const trip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      select: { id: true, busId: true, price: true, status: true },
     });
-    if (!trip) {
+    if (!trip || trip.status !== "SCHEDULED") {
       return res.status(404).json({ message: "Trip not found" });
     }
 
-    // is bus ki saari seats (row aur column ke order me, taaki seat map seedha ban sake)
+    // bus ki sari seats + is trip pe jo seats li gayi hain (booking ka status ke saath)
     const seats = await prisma.seat.findMany({
-      where: { busId: trip.bus.id },
+      where: { busId: trip.busId },
       orderBy: [{ row: "asc" }, { col: "asc" }],
-      select: { id: true, seatNumber: true, row: true, col: true },
-    });
-
-    // is trip ki booked seats
-    const bookedSeats = await prisma.bookingSeat.findMany({
-      where: { tripId: trip.id },
-      select: { seatId: true },
-    });
-
-    // booked seat ids ka Set (Set me "ye id hai ya nahi" check karna tez hota hai)
-    const bookedIds = new Set(bookedSeats.map((item) => item.seatId));
-
-    // har seat ke saath status jodo
-    const seatList = seats.map((seat) => ({
-      ...seat,
-      status: bookedIds.has(seat.id) ? "BOOKED" : "AVAILABLE",
-    }));
-
-    return res.status(200).json({
-      trip,
-      summary: {
-        total: seatList.length,
-        booked: bookedIds.size,
-        available: seatList.length - bookedIds.size,
+      include: {
+        bookingSeats: {
+          where: { tripId },
+          select: { booking: { select: { status: true } } },
+        },
       },
-      seats: seatList,
     });
+
+    const seatMap = seats.map((seat) => {
+      const taken = seat.bookingSeats[0]; // is trip pe is seat ki booking (agar hai)
+      let status = "AVAILABLE";
+      if (taken) {
+        // CONFIRMED = payment ho gaya, PENDING = abhi 5 min ke liye hold
+        status = taken.booking.status === "CONFIRMED" ? "BOOKED" : "HELD";
+      }
+      return { id: seat.id, seatNumber: seat.seatNumber, row: seat.row, col: seat.col, status };
+    });
+
+    const summary = {
+      total: seatMap.length,
+      available: seatMap.filter((s) => s.status === "AVAILABLE").length,
+      held: seatMap.filter((s) => s.status === "HELD").length,
+      booked: seatMap.filter((s) => s.status === "BOOKED").length,
+    };
+
+    return res.status(200).json({ price: trip.price, seats: seatMap, summary });
   } catch (error) {
     console.error("getTripSeats error:", error);
     return res.status(500).json({ message: "Something went wrong" });
