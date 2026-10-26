@@ -1,5 +1,6 @@
 import {prisma} from "../config/prismaClient.js"; 
 import { releaseSeats } from "../utils/seatLock.js";
+import { emitSeatUpdate } from "../config/socket.js";
 
 // ek baar chalne par: expired PENDING bookings ko EXPIRED karo aur seats free karo
 export const expireBookings = async () => {
@@ -22,6 +23,8 @@ export const expireBookings = async () => {
       // seats DB se hatao (warna unique ki wajah se kabhi free nahi hongi)
       await prisma.bookingSeat.deleteMany({ where: { bookingId: booking.id } });
 
+      emitSeatUpdate(booking.tripId, booking.seats.map((s) => s.seatId), "AVAILABLE");
+      
       // Redis lock bhi chhodo
       await releaseSeats(booking.tripId, booking.seats.map((s) => s.seatId), booking.userId);
 

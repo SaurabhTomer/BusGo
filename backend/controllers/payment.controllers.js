@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import { prisma } from "../config/prismaClient.js";
 import razorpay from "../config/razorpay.js";
+import { refundPayment } from "../utils/refund.js";
+import { emitSeatUpdate } from "../config/socket.js";
 import { createOrderSchema, verifyPaymentSchema } from "../validations/payment.validations.js";
 
 // ---------- Signature check ----------
@@ -15,6 +17,22 @@ const isValidSignature = (data, signature, secret) => {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 };
 
+// ---------- Late payment: booking expire/cancel ho chuki, par paisa aa gaya ----------
+// Seat kisi aur ko mil sakti hai, isliye confirm nahi karte. Poora paisa wapas (100%).
+const refundLatePayment = async (payment, paymentId, why) => {
+  // pehle payment row ko PAID mark karte hain (refund ke liye razorpayPaymentId chahiye).
+  // where me status CREATED/FAILED: verify aur webhook dono ek saath aaye to sirf ek jeetega,
+  // isliye double refund nahi hoga
+  const claimed = await prisma.payment.updateMany({
+    where: { id: payment.id, status: { in: ["CREATED", "FAILED"] } },
+    data: { status: "PAID", razorpayPaymentId: paymentId },
+  });
+  if (claimed.count === 0) return; // kisi aur ne pehle hi sambhal liya
+
+  const paid = await prisma.payment.findUnique({ where: { id: payment.id } });
+  await refundPayment(paid, paid.amount, why);
+};
+
 // ---------- Booking confirm karna (verify aur webhook dono yahi use karte hain) ----------
 // Idempotent: kitni baar bhi chalao, result same, kuch bigadta nahi
 const confirmPayment = async (orderId, paymentId) => {
@@ -24,13 +42,17 @@ const confirmPayment = async (orderId, paymentId) => {
   });
   if (!payment) return { ok: false, code: 404, message: "Payment not found" };
 
-  // pehle se PAID hai (verify aur webhook dono aaye) to dobara kaam nahi
-  if (payment.status === "PAID") return { ok: true, booking: payment.booking, already: true };
-
   const booking = payment.booking;
-  // booking expire/cancel ho chuki hai to confirm nahi (refund baad me banayenge)
+
+  // pehle se PAID ya REFUNDED hai (verify aur webhook dono aaye)
+  if (payment.status === "PAID" || payment.status === "REFUNDED") {
+    if (booking.status === "CONFIRMED") return { ok: true, booking, already: true };
+    return { ok: false, code: 409, message: `Booking is ${booking.status}. Amount refunded` };
+  }
+
+  // booking expire/cancel ho chuki hai: confirm nahi, paisa wapas
   if (booking.status !== "PENDING") {
-    console.warn(`Payment ${paymentId} came for ${booking.status} booking ${booking.id}. Refund needed`);
+    await refundLatePayment(payment, paymentId, `Payment came after booking ${booking.status}`);
     return { ok: false, code: 409, message: `Booking is ${booking.status}. Amount will be refunded` };
   }
 
@@ -56,11 +78,19 @@ const confirmPayment = async (orderId, paymentId) => {
     return tx.booking.findUnique({ where: { id: booking.id } });
   });
 
-  // booking expire ho chuki thi aur payment aa gayi (refund wale step me handle karenge)
+  // beech me booking expire ho gayi thi aur payment aa gayi: paisa wapas
   if (!updatedBooking) {
-    console.warn(`Payment ${paymentId} came but booking ${booking.id} is no longer PENDING. Refund needed`);
+    await refundLatePayment(payment, paymentId, "Booking expired while payment was in progress");
     return { ok: false, code: 409, message: "Booking expired. Amount will be refunded" };
   }
+
+  const seatRows = await prisma.bookingSeat.findMany({
+    where: { bookingId: booking.id },
+    select: { seatId: true },
+  });
+  emitSeatUpdate(booking.tripId, seatRows.map((x) => x.seatId), "BOOKED");      //socket emit
+
+
   return { ok: true, booking: updatedBooking };
 };
 

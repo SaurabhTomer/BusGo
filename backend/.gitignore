@@ -1,5 +1,8 @@
 node_modules/
 .env
+.env.*
 /generated/prisma
 keys/
+*.pem
+dist/
 production_todo.md

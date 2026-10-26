@@ -16,7 +16,7 @@ end`;
 // sab seats lock karo. Ek bhi fail hui to jo lock ki thi wapas chhod do
 export const lockSeats = async (tripId, seatIds, userId) => {
   const locked = [];
-  for (const seatId of seatIds) {
+  for (const seatId of [...seatIds].sort()) {
     // NX = sirf tab set ho jab key pehle se na ho
     const ok = await redis.set(lockKey(tripId, seatId), userId, "EX", LOCK_SECONDS, "NX");
     if (!ok) {

@@ -1,0 +1,284 @@
+@import "tailwindcss";
+@import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/hanken-grotesk";
+
+/* ---------- Design tokens: raat ki highway ---------- */
+@theme {
+  --font-display: "Bricolage Grotesque Variable", system-ui, sans-serif;
+  --font-sans: "Hanken Grotesk Variable", system-ui, sans-serif;
+
+  --color-night: #0e1324; /* page background */
+  --color-asphalt: #161c32; /* surfaces */
+  --color-kerb: #1f2742; /* raised surfaces, inputs */
+  --color-line: #313a5c; /* borders */
+  --color-ink: #eef0f8; /* main text */
+  --color-mist: #9aa4c7; /* secondary text */
+  --color-headlight: #ffc857; /* primary action */
+  --color-taillight: #ff6b5e; /* held seats, danger */
+  --color-reflector: #3fdcb2; /* confirmed, success */
+}
+
+html {
+  color-scheme: dark;
+}
+body {
+  background: var(--color-night);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible {
+  outline: 2px solid var(--color-headlight);
+  outline-offset: 2px;
+}
+::selection {
+  background: var(--color-headlight);
+  color: var(--color-night);
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.7rem 1.15rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s, opacity 0.15s;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--color-headlight);
+  color: #1b1500;
+}
+.btn-primary:hover:not(:disabled) {
+  background: #ffd47a;
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+}
+.btn-ghost:hover:not(:disabled) {
+  border-color: var(--color-mist);
+  background: var(--color-kerb);
+}
+.btn-danger {
+  background: transparent;
+  color: var(--color-taillight);
+  border: 1px solid color-mix(in srgb, var(--color-taillight) 45%, transparent);
+}
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-taillight) 12%, transparent);
+}
+.btn-sm {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+  border-radius: 0.6rem;
+}
+
+/* ---------- Inputs ---------- */
+.input {
+  width: 100%;
+  background: var(--color-kerb);
+  border: 1px solid var(--color-line);
+  border-radius: 0.625rem;
+  padding: 0.7rem 0.85rem;
+  color: var(--color-ink);
+  font-size: 0.95rem;
+  transition: border-color 0.15s;
+}
+.input::placeholder {
+  color: color-mix(in srgb, var(--color-mist) 70%, transparent);
+}
+.input:hover {
+  border-color: var(--color-mist);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--color-headlight);
+}
+select.input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa4c7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.25rem;
+}
+input[type="date"].input::-webkit-calendar-picker-indicator,
+input[type="datetime-local"].input::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+  cursor: pointer;
+}
+
+/* ---------- Ticket: beech me dashed katan aur dono taraf notch ---------- */
+.ticket {
+  position: relative;
+  background: var(--color-asphalt);
+  border: 1px solid var(--color-line);
+  border-radius: 1.25rem;
+}
+.ticket-cut {
+  position: relative;
+  border-top: 2px dashed var(--color-line);
+}
+.ticket-cut::before,
+.ticket-cut::after {
+  content: "";
+  position: absolute;
+  top: -11px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--color-night);
+  border: 1px solid var(--color-line);
+}
+.ticket-cut::before {
+  left: -11px;
+  clip-path: inset(0 0 0 50%);
+}
+.ticket-cut::after {
+  right: -11px;
+  clip-path: inset(0 50% 0 0);
+}
+@media (min-width: 768px) {
+  .ticket-side {
+    border-top: 0;
+    border-left: 2px dashed var(--color-line);
+  }
+  .ticket-side::before,
+  .ticket-side::after {
+    left: -11px;
+    right: auto;
+    clip-path: none;
+  }
+  .ticket-side::before {
+    top: -11px;
+    clip-path: inset(50% 0 0 0);
+  }
+  .ticket-side::after {
+    top: auto;
+    bottom: -11px;
+    clip-path: inset(0 0 50% 0);
+  }
+}
+
+/* ---------- Seat states ---------- */
+.seat {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.9rem;
+  border-radius: 0.55rem 0.55rem 0.35rem 0.35rem;
+  border: 1.5px solid var(--color-line);
+  background: var(--color-kerb);
+  color: var(--color-ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: border-color 0.12s, background 0.12s, transform 0.12s;
+}
+.seat::after {
+  /* seat ka headrest */
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 22%;
+  right: 22%;
+  height: 4px;
+  border-radius: 3px 3px 0 0;
+  background: inherit;
+  border: 1.5px solid var(--color-line);
+  border-bottom: 0;
+}
+button.seat:hover:not(:disabled) {
+  border-color: var(--color-headlight);
+  transform: translateY(-1px);
+}
+.seat[data-state="selected"] {
+  background: var(--color-headlight);
+  border-color: var(--color-headlight);
+  color: #1b1500;
+}
+.seat[data-state="selected"]::after {
+  border-color: var(--color-headlight);
+}
+.seat[data-state="held"] {
+  color: var(--color-taillight);
+  border-color: color-mix(in srgb, var(--color-taillight) 55%, transparent);
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-taillight) 16%, var(--color-kerb)) 0 5px,
+    var(--color-kerb) 5px 10px
+  );
+}
+.seat[data-state="booked"] {
+  color: color-mix(in srgb, var(--color-mist) 60%, transparent);
+  background: var(--color-night);
+  border-color: color-mix(in srgb, var(--color-line) 65%, transparent);
+  cursor: not-allowed;
+}
+.seat[data-state="booked"]::after {
+  border-color: color-mix(in srgb, var(--color-line) 65%, transparent);
+}
+.seat[data-state="mine"] {
+  background: color-mix(in srgb, var(--color-reflector) 20%, var(--color-kerb));
+  border-color: var(--color-reflector);
+  color: var(--color-reflector);
+}
+.seat-flash {
+  animation: flash 0.9s ease-out;
+}
+@keyframes flash {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-headlight) 70%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 12px transparent;
+  }
+}
+
+/* ---------- Hero seats: ek baar load pe seats "claim" hoti hain ---------- */
+.hero-seat {
+  animation: claim 0.5s ease-out both;
+  animation-delay: calc(var(--i) * 55ms + 500ms);
+}
+@keyframes claim {
+  from {
+    background: var(--color-kerb);
+    border-color: var(--color-line);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-seat,
+  .seat-flash {
+    animation: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.toast-in {
+  animation: toast-in 0.2s ease-out;
+}

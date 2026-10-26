@@ -39,3 +39,6 @@ const address = z
   address,
 });
 
+export const bookingsQuerySchema = z.object({
+  status: z.enum(["PENDING", "CONFIRMED", "CANCELLED", "EXPIRED"], { error: "Invalid status" }).optional(),
+});

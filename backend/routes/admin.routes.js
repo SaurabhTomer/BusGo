@@ -5,7 +5,10 @@ import {
   approveOperator,
   rejectOperator,
   suspendOperator,
-} from "../controllers/admin.controllers.js"; 
+  getAdminStats,
+  getAdminUsers,
+  getAdminBookings,
+} from "../controllers/admin.controllers.js";
 import { verifyToken, authorizeRoles } from "../middlewares/auth.middlewares.js"; 
 
 import {
@@ -14,6 +17,7 @@ import {
   updateCity,
   removeCity,
 } from "../controllers/city.controllers.js";
+import { getOperatorDocumentsForAdmin } from "../controllers/document.controllers.js";
 
 const router = express.Router();
 
@@ -29,5 +33,10 @@ router.post("/cities",verifyToken, authorizeRoles("ADMIN"), createCity);
 router.get("/cities",verifyToken, authorizeRoles("ADMIN"), getAllCities);
 router.patch("/cities/:id",verifyToken, authorizeRoles("ADMIN"), updateCity); 
 router.delete("/cities/:id",verifyToken, authorizeRoles("ADMIN"), removeCity); 
+router.get("/stats", verifyToken, authorizeRoles("ADMIN"), getAdminStats);
+router.get("/users", verifyToken, authorizeRoles("ADMIN"), getAdminUsers);
+router.get("/bookings", verifyToken, authorizeRoles("ADMIN"), getAdminBookings);
+
+router.get("/operators/:id/documents", verifyToken, authorizeRoles("ADMIN"), getOperatorDocumentsForAdmin);
 
 export default router;

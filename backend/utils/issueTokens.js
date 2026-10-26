@@ -3,11 +3,15 @@ import redis from "../config/redis.js"; // apni redis file ka path/naam rakhna
 import { signToken } from "../config/jwt.js"; // access token banane ke liye
 import { REFRESH_EXPIRY, refreshKey } from "../constants/auth.constants.js";
 
+
+const isProd = process.env.NODE_ENV === "production";
+
+
 // refresh cookie ki settings
 export const cookieOptions = {
   httpOnly: true, // JavaScript se cookie padhi nahi ja sakti
-  secure: process.env.NODE_ENV === "production", // production me sirf https pe
-  sameSite: "strict", // dusri site se cookie nahi jaayegi
+  secure: isProd, // production me sirf https pe
+  sameSite: isProd ? "none" : "lax", // dusri site se cookie nahi jaayegi
   maxAge: REFRESH_EXPIRY * 1000, // 7 din (milliseconds me)
 };
 
