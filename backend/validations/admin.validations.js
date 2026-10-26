@@ -23,3 +23,12 @@ export const rejectSchema = z.object({
     .max(200, "Reason can be at most 200 characters"), 
 });
 
+export const bookingsQuerySchema = z.object({
+  status: z.enum(["PENDING", "CONFIRMED", "CANCELLED", "EXPIRED"], { error: "Invalid status" }).optional(),
+});
+
+
+export const usersQuerySchema = z.object({
+  role: z.enum(["USER", "OPERATOR", "ADMIN"], { error: "Invalid role" }).optional(),
+  search: z.string().trim().max(50).optional(),
+});

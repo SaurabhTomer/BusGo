@@ -2,11 +2,13 @@ import crypto from "crypto";
 import bcrypt from "bcrypt"; 
 import {prisma} from "../config/prismaClient.js";
 import redis from "../config/redis.js";
+import { sendSms } from "../utils/sendSms.js";
 import {
     sendOtpSchema,
     verifyOtpSchema,
     signupSchema,
     loginSchema,
+    changePasswordSchema
 } from "../validations/auth.validations.js";
 import {
     OTP_EXPIRY,
@@ -21,8 +23,10 @@ import {
     LOGIN_MAX_ATTEMPTS,
     refreshKey,
     REFRESH_EXPIRY,
+    LOGIN_LOCK_TIME,
 } from "../constants/auth.constants.js";
 import { issueTokens } from "../utils/issueTokens.js";
+import { log } from "console";
 
 
 
@@ -62,10 +66,14 @@ export const sendOtp = async (req, res) => {
 
         await redis.del(attemptsKey(phone));        // reset all previous OTP attempts
 
-        // mock SMS: abhi terminal me print kar rahe hain (baad me asli SMS service lagana)
-        console.log(`[MOCK SMS] OTP for ${phone} is ${otp}`);
+        const sms = await sendSms(phone, `Your BusGo OTP is ${otp}. It is valid for 5 minutes.`);
+        // console.log(`otp is ${otp}`);
+        
 
-        return res.status(200).json({ message: "OTP sent successfully" });
+return res.status(200).json({
+  message: "OTP sent",
+  ...(sms.demo && { otp }), // sirf demo mode mein OTP response me aayega
+});
     } catch (error) {
         console.error("sendOtp error:", error);
         return res.status(500).json({ message: "Something went wrong" });
@@ -298,6 +306,34 @@ export const getMe = async (req, res) => {
     return res.status(200).json({ user });
   } catch (error) {
     console.error("getMe error:", error);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+
+
+// ---------- POST /api/auth/change-password ----------
+export const changePassword = async (req, res) => {
+  try {
+    const result = changePasswordSchema.safeParse(req.body);
+    if (!result.success) return res.status(400).json({ message: result.error.issues[0].message });
+    const { currentPassword, newPassword } = result.data;
+
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    
+    const ok = await bcrypt.compare(currentPassword, user.password);
+    if (!ok) return res.status(400).json({ message: "Current password is wrong" });
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ message: "New password must be different from the current one" });
+    }
+
+    await prisma.user.update({ where: { id: user.id }, data: { password: await bcrypt.hash(newPassword, 10) } });
+    return res.status(200).json({ message: "Password changed" });
+  } catch (error) {
+    console.error("changePassword error:", error);
     return res.status(500).json({ message: "Something went wrong" });
   }
 };

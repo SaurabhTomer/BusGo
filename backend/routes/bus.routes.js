@@ -8,12 +8,15 @@ import {
   deactivateBus,
 } from "../controllers/bus.controllers.js"; 
 import { verifyToken, authorizeRoles, requireApprovedOperator } from "../middlewares/auth.middlewares.js";
+import { uploadBusRc } from "../controllers/document.controllers.js";
+import { uploadFile } from "../middlewares/upload.middlewares.js";
 
 const busRouter = express.Router();
 
 
+busRouter.post("/:id/rc", verifyToken, authorizeRoles("OPERATOR"), requireApprovedOperator, uploadFile, uploadBusRc);
 
-// operator (sirf apni) ya admin (saari) view kr skta h
+
 busRouter.get("/", verifyToken, authorizeRoles("OPERATOR", "ADMIN"), getBuses);
 busRouter.get("/:id", verifyToken, authorizeRoles("OPERATOR", "ADMIN"), getBusById);
 

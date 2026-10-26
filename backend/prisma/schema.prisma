@@ -56,6 +56,7 @@ model Bus {
 
   seats Seat[]
   trips Trip[]
+  documents OperatorDocument[]
 }
 
 model Operator {
@@ -73,6 +74,7 @@ model Operator {
 
   user   User    @relation(fields: [userId], references: [id])
   buses  Bus[]
+  documents OperatorDocument[]
   routes Route[]
 }
 
@@ -214,4 +216,29 @@ model Refund {
   createdAt        DateTime     @default(now())
 
   payment Payment @relation(fields: [paymentId], references: [id])
+}
+
+
+enum DocumentType {
+  PAN // operator ka PAN card
+  GST // operator ka GST certificate
+  RC  // bus ka Registration Certificate
+}
+
+model OperatorDocument {
+  id           String       @id @default(uuid())
+  operatorId   String
+  busId        String? // sirf RC ke liye bharega
+  type         DocumentType
+  publicId     String // Cloudinary me file ki id (file private hai)
+  format       String // jpg / png / pdf
+  resourceType String // Cloudinary ka "image" ya "raw"
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  operator Operator @relation(fields: [operatorId], references: [id])
+  bus      Bus?     @relation(fields: [busId], references: [id], onDelete: Cascade)
+
+  @@index([operatorId])
+  @@index([busId])
 }
